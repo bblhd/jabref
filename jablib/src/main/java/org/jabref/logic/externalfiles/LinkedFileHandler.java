@@ -236,45 +236,29 @@ public class LinkedFileHandler {
     }
 
     public String getSuggestedFileName() {
-        String extension = FileUtil.getFileExtension(linkedFile.getLink())
-                                   .orElse(linkedFile.getFileType());
-        return getSuggestedFileName(extension);
+        // Cannot get extension from type because would need both ExternalApplicationsPreferences, as type is stored as a localisation dependent string.
+        String filename = linkedFile.getFileName();
+        Optional<String> targetFileName = FileUtil.createFileNameFromPattern(databaseContext.getDatabase(), entry, filePreferences.getFileNamePattern());
+        if (targetFileName.isPresent()) {
+            Optional<String> extension = FileUtil.getFileExtension(filename);
+            if (extension.isPresent()) {
+                return FileUtil.getValidFileName(targetFileName.get() + "." + extension.get());
+            }
+            return FileUtil.getValidFileName(targetFileName.get());
+        }
+        return filename;
     }
 
     /**
-     * Determines the file name based on the pattern specified in the preferences and valid for the file system.
+     * Determines the suggested file name based on the pattern specified in the preferences and valid for the file system.
      *
      * @param extension The extension of the file. If empty, no extension is added.
-     * @return A filename based on the pattern specified in the preferences and valid for the file system.
+     * @return the suggested filename, including extension
      */
     public String getSuggestedFileName(@NonNull String extension) {
         Optional<String> targetFileName = FileUtil.createFileNameFromPattern(databaseContext.getDatabase(), entry, filePreferences.getFileNamePattern());
-        if (targetFileName.isEmpty() && linkedFile.isOnlineLink()) {
-            String oldFileName = linkedFile.getLink();
-            int lastSlashIndex = oldFileName.lastIndexOf('/');
-            if (lastSlashIndex >= 0 && lastSlashIndex < oldFileName.length() - 1) {
-                String fileNameFromUrl = oldFileName.substring(lastSlashIndex + 1);
-                int queryIndex = fileNameFromUrl.indexOf('?');
-                if (queryIndex > 0) {
-                    fileNameFromUrl = fileNameFromUrl.substring(0, queryIndex);
-                }
-                if (!fileNameFromUrl.isEmpty()) {
-                    if (!extension.isEmpty()) {
-                        Optional<String> existingExtension = FileUtil.getFileExtension(fileNameFromUrl);
-                        if (existingExtension.isEmpty() || !existingExtension.get().equalsIgnoreCase(extension)) {
-                            String baseName = FileUtil.getBaseName(fileNameFromUrl);
-                            fileNameFromUrl = baseName + "." + extension;
-                        }
-                    }
-                    return FileUtil.getValidFileName(fileNameFromUrl);
-                }
-            }
-        }
-
-        String baseName = targetFileName.orElse("file");
-        String suggestedName = extension.isEmpty() ? baseName : baseName + "." + extension;
-
-        return FileUtil.getValidFileName(suggestedName);
+        String basename = targetFileName.orElse(FileUtil.getBaseName(linkedFile.getFileName()));
+        return FileUtil.getValidFileName(basename + "." + extension);
     }
 
     /**

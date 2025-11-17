@@ -217,6 +217,8 @@ public class JabRefCliPreferences implements CliPreferences {
     public static final String KEY_PATTERN_REGEX = "KeyPatternRegex";
     public static final String KEY_PATTERN_REPLACEMENT = "KeyPatternReplacement";
     public static final String MAIN_FILE_DIRECTORY = "fileDirectory";
+    public static final String COVER_IMAGE_LOCATION = "coverLocation";
+    public static final String COVER_IMAGE_DOWNLOAD = "coverDownload";
 
     public static final String SEARCH_DISPLAY_MODE = "searchDisplayMode";
     public static final String SEARCH_CASE_SENSITIVE = "caseSensitiveSearch";
@@ -593,6 +595,9 @@ public class JabRefCliPreferences implements CliPreferences {
         defaults.put(LAST_USED_DIRECTORY, getDefaultPath().toString());
 
         defaults.put(CREATE_BACKUP, Boolean.TRUE);
+        
+        defaults.put(COVER_IMAGE_DOWNLOAD, Boolean.TRUE);
+        defaults.put(COVER_IMAGE_LOCATION, "covers");
 
         // Remembers working directory of last import
         defaults.put(IMPORT_WORKING_DIRECTORY, USER_HOME);
@@ -1723,7 +1728,9 @@ public class JabRefCliPreferences implements CliPreferences {
                 getBoolean(KEEP_DOWNLOAD_URL),
                 getPath(LAST_USED_DIRECTORY, getDefaultPath()),
                 getBoolean(OPEN_FILE_EXPLORER_IN_FILE_DIRECTORY),
-                getBoolean(OPEN_FILE_EXPLORER_IN_LAST_USED_DIRECTORY));
+                getBoolean(OPEN_FILE_EXPLORER_IN_LAST_USED_DIRECTORY),
+                getBoolean(COVER_IMAGE_DOWNLOAD),
+                get(COVER_IMAGE_LOCATION));
 
         EasyBind.listen(getInternalPreferences().getUserAndHostProperty(), (_, _, newValue) -> filePreferences.getUserAndHostProperty().setValue(newValue));
         EasyBind.listen(filePreferences.mainFileDirectoryProperty(), (_, _, newValue) -> put(MAIN_FILE_DIRECTORY, newValue));
@@ -1742,6 +1749,8 @@ public class JabRefCliPreferences implements CliPreferences {
         EasyBind.listen(filePreferences.lastUsedDirectoryProperty(), (_, _, newValue) -> put(LAST_USED_DIRECTORY, newValue.toString()));
         EasyBind.listen(filePreferences.openFileExplorerInFileDirectoryProperty(), (_, _, newValue) -> putBoolean(OPEN_FILE_EXPLORER_IN_FILE_DIRECTORY, newValue));
         EasyBind.listen(filePreferences.openFileExplorerInLastUsedDirectoryProperty(), (_, _, newValue) -> putBoolean(OPEN_FILE_EXPLORER_IN_LAST_USED_DIRECTORY, newValue));
+        EasyBind.listen(filePreferences.shouldDownloadCoversProperty(), (_, _, newValue) -> putBoolean(COVER_IMAGE_DOWNLOAD, newValue));
+        EasyBind.listen(filePreferences.coversDownloadLocationProperty(), (_, _, newValue) -> put(COVER_IMAGE_LOCATION, newValue));
 
         return filePreferences;
     }

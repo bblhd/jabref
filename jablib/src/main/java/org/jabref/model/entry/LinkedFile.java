@@ -224,17 +224,53 @@ public class LinkedFile implements Serializable {
     public boolean isOnlineLink() {
         return isOnlineLink(link.get());
     }
+    
+    public String getFileName() {
+        String linkedName = link.get();
+        if (isOnlineLink(linkedName)) {
+            return FileUtil.getFileNameFromUrl(linkedName);
+        } else {
+            try {
+                return Path.of(linkedName).getFileName().toString();
+            } catch (InvalidPathException ex) {
+                return "";
+            }
+        }
+    }
+    
+    public Optional<String> getURI(BibDatabaseContext databaseContext, FilePreferences filePreferences) {
+        List<Path> dirs = databaseContext.getFileDirectories(filePreferences);
+        return getURI(dirs);
+    }
+    
+    public Optional<String> getURI(List<Path> directories) {
+        String linkedName = link.get();
+        if (isOnlineLink(linkedName)) {
+            if (linkedName.startsWith("www.")) {
+                linkedName = "https://"+linkedName;
+            }
+            return Optional.of(linkedName);
+        } else {
+            Optional<Path> fileLocation = findIn(directories);
+            if (fileLocation.isPresent()) {
+                return Optional.of(fileLocation.get().toUri().toString());
+            }
+            return Optional.empty();
+        }
+    }
 
     public Optional<Path> findIn(BibDatabaseContext databaseContext, FilePreferences filePreferences) {
         List<Path> dirs = databaseContext.getFileDirectories(filePreferences);
         return findIn(dirs);
     }
 
-    /// Tries to locate the file.
-    /// In case the path is absolute, the path is checked.
-    /// In case the path is relative, the given directories are used as base directories.
-    ///
-    /// @return absolute path if found.
+    /**
+     * Tries to locate the file.
+     * In case the path is absolute, the path is checked.
+     * In case the path is relative, the given directories are used as base directories.
+     * 
+     * @return absolute path if found.
+     */
     public Optional<Path> findIn(List<Path> directories) {
         try {
             if (link.get().isEmpty()) {

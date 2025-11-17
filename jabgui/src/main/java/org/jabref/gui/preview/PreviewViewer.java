@@ -2,8 +2,10 @@ package org.jabref.gui.preview;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import javafx.beans.InvalidationListener;
 import javafx.beans.Observable;
@@ -25,14 +27,19 @@ import org.jabref.gui.search.Highlighter;
 import org.jabref.gui.theme.ThemeManager;
 import org.jabref.gui.util.UiTaskExecutor;
 import org.jabref.gui.util.WebViewStore;
+import org.jabref.gui.externalfiletype.ExternalFileType;
+import org.jabref.gui.externalfiletype.ExternalFileTypes;
 import org.jabref.logic.l10n.Localization;
 import org.jabref.logic.layout.format.Number;
 import org.jabref.logic.preview.PreviewLayout;
 import org.jabref.logic.util.BackgroundTask;
 import org.jabref.logic.util.TaskExecutor;
+import org.jabref.logic.util.io.FileUtil;
 import org.jabref.logic.util.strings.StringUtil;
 import org.jabref.model.database.BibDatabaseContext;
 import org.jabref.model.entry.BibEntry;
+import org.jabref.model.entry.LinkedFile;
+import org.jabref.model.entry.types.StandardEntryType;
 import org.jabref.model.search.query.SearchQuery;
 
 import com.airhacks.afterburner.injection.Injector;
@@ -222,15 +229,65 @@ public class PreviewViewer extends ScrollPane implements InvalidationListener {
     }
 
     private void setPreviewText(String text) {
+        String coverIfAny = "";
+        Optional<String> image = getCoverImageURI();
+        if (image.isPresent()) {
+            coverIfAny = "<img style=\"border-width:1px; border-style:solid; border-color:black; display:block; height:12rem;\" src=\"%s\"> <br>".formatted(image.get());
+        }
+
         layoutText = """
                 <html>
                     <body id="previewBody">
-                        <div id="content"> %s </div>
+                        %s <div id="content"> %s </div>
                     </body>
                 </html>
-                """.formatted(text);
+            """.formatted(coverIfAny, text);
         highlightLayoutText();
         setHvalue(0);
+    }
+
+    private Optional<String> getCoverImageURI() {
+        if (shouldShowCoverImage()) {
+            String nameFromFormat = FileUtil.createFileNameFromPattern(databaseContext.getDatabase(), entry, preferences.getFilePreferences().getFileNamePattern()).orElse("cover");
+
+            List<LinkedFile> linkedFiles = entry.getFiles();
+            for (LinkedFile file : linkedFiles) {
+                // matches images that are either named according to the preferred file name format
+                // or images with case-insensitive "[cover]" in their description, to allow using any image regardless of name
+
+                if (file.getDescription().toLowerCase().contains("[cover]") || isFileTypeAValidCoverImage(file.getFileType()) && (FileUtil.getBaseName(file.getFileName()).equals(nameFromFormat))) {
+                    return file.getURI(databaseContext, preferences.getFilePreferences());
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
+    private boolean shouldShowCoverImage() {
+        //entry is sometimes null when setPreviewText is called
+        if (entry == null) {
+            return false;
+        }
+
+        return switch (entry.getType()) {
+            case StandardEntryType.Book, StandardEntryType.Booklet, StandardEntryType.BookInBook, StandardEntryType.InBook, StandardEntryType.MvBook -> true;
+            default -> false;
+        };
+    }
+
+    private boolean isFileTypeAValidCoverImage(String fileType) {
+        // to allow url links
+        if (fileType.equals("")) {
+            return true;
+        }
+
+        // needed because type names are stored in a localization dependent way
+        Optional<ExternalFileType> actualFileType = ExternalFileTypes.getExternalFileTypeByName(fileType, preferences.getExternalApplicationsPreferences());
+
+        if (actualFileType.isPresent()) {
+            return actualFileType.get().getMimeType().startsWith("image/");
+        }
+        return false;
     }
 
     private void highlightLayoutText() {
